@@ -1,0 +1,74 @@
+# V-Bit Headstone Simulator
+
+A browser-based tool for designing headstone lettering, generating a V-carve
+toolpath, and simulating a V-bit carving it into stone in 3D.
+
+![workflow: design → toolpath → simulated carve](docs/screenshot.png)
+
+## Running it
+
+No build step. Serve the folder with any static web server and open
+`index.html`:
+
+```bash
+python3 -m http.server 8000
+# then open http://localhost:8000
+```
+
+(Opening the file directly via `file://` won't work because browsers block ES
+modules there.) Three.js is vendored in `vendor/`, so it works offline; the
+memorial fonts load from Google Fonts when online and fall back to the browser's
+serif font otherwise.
+
+## What it does
+
+1. **Stone**: pick a profile (serpentine, segmental arch, Roman half-round,
+   gothic, peak, rounded or square top, heart), size, thickness and material
+   (black / grey / red / blue-pearl granite, marble, sandstone).
+2. **Design**: lines of lettering (memorial fonts such as Cinzel, EB Garamond,
+   Great Vibes), an emblem (cross, Celtic cross, heart(s), Star of David, dove,
+   rose), a carved border at a constant inset from the edge, and optional
+   line-art from an uploaded image.
+3. **Toolpath**: the design is rasterised and run through an exact Euclidean
+   distance transform. A V-bit with included angle θ cuts to depth
+   `z = D / tan(θ/2)`, where `D` is the distance to the nearest edge of the
+   letter. Three strategies are available:
+   - **V-carve (medial axis)**: follows the skeleton of each letter at that
+     depth, which produces crisp sloped walls and sharp corners. When the
+     depth hits *Max depth* the bottom goes flat, and extra offset passes
+     clear it with the tip.
+   - **Offset contours + axis**: iso-distance contours at the stepover, plus
+     the medial-axis pass.
+   - **Raster**: zig-zag rows following the depth map.
+
+   The toolpath is split into **depth passes** (*Depth per pass*), which is
+   how stone is usually cut.
+4. **Simulation**: a height-field material-removal model sweeps the true
+   bit geometry (a cone capped by the bit diameter) along every move. Play it
+   at 1× to ~2500× real time, jump to the end, or click **Preview result** to
+   see the ideal finished carve. Optional letter fill (gold leaf, silver,
+   white or black paint) shows the finished look.
+5. **G-code**: export the program (`G21`, absolute, origin at the bottom-left
+   of the face, Z0 on the polished surface), or **load your own G-code**
+   (G0/G1/G2/G3, G20/G21, G90/G91) to simulate a file from VCarve, Aspire,
+   Fusion and so on with the selected bit.
+
+## Notes and limits
+
+- Units are millimetres throughout.
+- Sim resolution sets the cell size of the height field. 0.5 mm suits
+  lettering down to about 10 mm tall; use 0.35 or 0.25 mm for small text.
+- The run-time estimate assumes constant feed (no acceleration).
+- A warning appears if *Max depth* is deeper than the cone of the chosen bit.
+
+## Layout
+
+| File | Purpose |
+| --- | --- |
+| `js/headstone.js` | Stone outline profiles |
+| `js/design.js` | Rasterises lettering, emblem, border and artwork |
+| `js/vcarve.js` | Distance transform, medial axis, contours, toolpaths, passes |
+| `js/simulator.js` | Height-field material removal with the V-bit |
+| `js/renderer.js` | Three.js scene, stone shader, bit and spindle |
+| `js/gcode.js` | G-code export and import |
+| `js/main.js` | UI wiring |
