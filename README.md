@@ -46,9 +46,14 @@ serif font otherwise.
 4. **Simulation**: a height-field material-removal model sweeps the true
    bit geometry (a cone capped by the bit diameter) along every move. Play it
    at 1× to ~2500× real time, jump to the end, or click **Preview result** to
-   see the ideal finished carve. Optional letter fill (gold leaf, silver,
-   white or black paint) shows the finished look.
-5. **G-code**: export the program (`G21`, absolute, origin at the bottom-left
+   see the ideal finished carve.
+5. **Carved area colour**: show the letters left frosted, or filled with gold
+   leaf, silver leaf, white or black paint, or any **custom colour**. Use the
+   colour picker or the swatches (white, black, gold, silver, bronze, red,
+   blue, green, grey), with an optional metallic finish. *Fill above depth*
+   sets how deep a cut must be before it takes the paint; lower it so the
+   shallow edges of small lettering get coloured too.
+6. **G-code**: export the program (`G21`, absolute, origin at the bottom-left
    of the face, Z0 on the polished surface), or **load your own G-code**
    (G0/G1/G2/G3, G20/G21, G90/G91) to simulate a file from VCarve, Aspire,
    Fusion and so on with the selected bit.

@@ -98,12 +98,16 @@
       </div>
     </details>
 
-    <details>
-      <summary>Finish</summary>
+    <details open>
+      <summary>Carved area colour</summary>
       <div class="grid2">
-        <label>Letter fill <select id="fill"></select></label>
+        <label>Fill <select id="fill"></select></label>
         <label>Fill above depth (mm) <input id="fillDepth" type="number" min="0" max="10" step="0.05" value="0.25"></label>
+        <label>Custom colour <input id="fillColor" type="color" value="#1f4e9c"></label>
+        <label class="check"><input id="fillMetal" type="checkbox"> Metallic finish</label>
       </div>
+      <div class="swatches" id="swatches" aria-label="Common lettering paints"></div>
+      <p class="hint">Picking a colour or swatch switches the fill to <em>Custom colour</em>.</p>
     </details>
 
     <div id="stats"></div>

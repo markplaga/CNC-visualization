@@ -197,7 +197,7 @@ function loadProgram(P) {
 
 function applyLook() {
   viewer.setStone($('stone').value);
-  viewer.setFill($('fill').value);
+  viewer.setFill($('fill').value, { color: $('fillColor').value, metal: $('fillMetal').checked });
   if (viewer.faceMat) viewer.faceMat.uniforms.uFillDepth.value = num('fillDepth');
   viewer.setLayout($('showLayout').checked);
   viewer.showToolpath($('showPath').checked);
@@ -334,6 +334,23 @@ const groups = {
 };
 for (const [kind, ids] of Object.entries(groups)) {
   for (const id of ids) $(id).addEventListener('input', () => schedule(kind));
+}
+const SWATCHES = [
+  ['#f2f0ea', 'White', false], ['#111111', 'Black', false], ['#d4a645', 'Gold', true],
+  ['#c9ccd2', 'Silver', true], ['#9a6a3a', 'Bronze', true], ['#8e1b1b', 'Red', false],
+  ['#1f4e9c', 'Blue', false], ['#2f6b3a', 'Green', false], ['#6b6f75', 'Grey', false],
+];
+for (const [hex, name, metal] of SWATCHES) {
+  const b = document.createElement('button');
+  b.className = 'swatch'; b.title = name; b.style.background = hex;
+  b.setAttribute('aria-label', name);
+  b.addEventListener('click', () => {
+    $('fillColor').value = hex; $('fillMetal').checked = metal; $('fill').value = 'custom'; applyLook();
+  });
+  $('swatches').appendChild(b);
+}
+for (const id of ['fillColor', 'fillMetal']) {
+  $(id).addEventListener('input', () => { $('fill').value = 'custom'; applyLook(); });
 }
 for (const id of ['stone', 'fill', 'fillDepth', 'showLayout', 'showPath', 'showTool']) {
   $(id).addEventListener('input', applyLook);

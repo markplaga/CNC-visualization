@@ -18,6 +18,7 @@ export const FILLS = {
   gold: { label: 'Gold leaf', color: [0.95, 0.72, 0.3], metal: 1 },
   silver: { label: 'Silver leaf', color: [0.85, 0.86, 0.88], metal: 1 },
   black: { label: 'Black paint', color: [0.03, 0.03, 0.03], metal: 0 },
+  custom: { label: 'Custom colour', color: null, metal: 0 },
 };
 
 const vert = /* glsl */`
@@ -333,13 +334,20 @@ export class Viewer {
     this.bodyMat.color.setHex(s.side);
   }
 
-  setFill(key) {
+  /** key: a FILLS entry; for 'custom', `custom` = { color: '#rrggbb', metal: bool }. */
+  setFill(key, custom = {}) {
     if (!this.faceMat) return;
     const f = FILLS[key] || FILLS.none;
     const u = this.faceMat.uniforms;
     u.uFillOn.value = key === 'none' ? 0 : 1;
-    u.uFill.value.fromArray(f.color);
-    u.uFillMetal.value = f.metal;
+    if (key === 'custom') {
+      const c = new THREE.Color(custom.color || '#ffffff'); // sRGB hex -> linear
+      u.uFill.value.set(c.r, c.g, c.b);
+      u.uFillMetal.value = custom.metal ? 1 : 0;
+    } else {
+      u.uFill.value.fromArray(f.color);
+      u.uFillMetal.value = f.metal;
+    }
   }
 
   setLayout(on) { if (this.faceMat) this.faceMat.uniforms.uLayout.value = on ? 1 : 0; }
