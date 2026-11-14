@@ -4,6 +4,7 @@ import { generateToolpaths, buildProgram, idealSurface, toolGeometry } from './v
 import { CarveSim } from './simulator.js';
 import { Viewer, STONES, FILLS } from './renderer.js';
 import { exportGcode, parseGcode, formatTime } from './gcode.js';
+import { buildOptimizedProgram } from './optimize.js';
 import { collectSettings, applySettings, loadImage, saveLocal, readLocal, clearLocal } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
@@ -122,6 +123,12 @@ function cutCfg() {
     strategy: $('strategy').value, stepover: num('stepover'),
   };
 }
+function optCfg() {
+  return {
+    enabled: $('optimize').checked, byRegion: $('optRegion').checked,
+    link: $('optLink').checked, linkDist: num('optLinkDist') || 0, retract: num('optRetract') || 1,
+  };
+}
 function machineCfg() {
   return {
     feed: num('feed'), plunge: num('plunge'), rpm: num('rpm'), safeZ: num('safeZ'),
@@ -171,7 +178,12 @@ async function run(level) {
       viewer.setTool(toolCfg());
     }
     if (level >= LEVEL.machine || !state.program) {
-      state.program = buildProgram(state.gen.passes, machineCfg());
+      const m = machineCfg(), opt = optCfg();
+      const base = buildProgram(state.gen.passes, m);
+      state.baseline = base;
+      state.program = opt.enabled
+        ? buildOptimizedProgram(state.gen, state.grid, state.design.carve, toolCfg(), m, opt)
+        : base;
     }
     if (level >= LEVEL.machine) loadProgram(state.imported ? state.imported.program : state.program);
     applyLook();
@@ -226,6 +238,12 @@ function updateStats() {
   rows.push(['Cutting distance', `${(P.cutLength / 1000).toFixed(2)} m`]);
   rows.push(['Rapid distance', `${(P.rapidLength / 1000).toFixed(2)} m`]);
   rows.push(['Estimated run time', formatTime(P.totalTime)]);
+  if (!state.imported && P.optStats && state.baseline) {
+    const b = state.baseline, saved = b.totalTime - P.totalTime;
+    rows.push(['Unoptimized run time', formatTime(b.totalTime)]);
+    rows.push(['Time saved', `${formatTime(Math.max(0, saved))} (${Math.max(0, (saved / b.totalTime) * 100).toFixed(0)}%)`]);
+    rows.push(['Lifts / linked cuts', `${P.optStats.lifts.toLocaleString()} / ${P.optStats.links.toLocaleString()}`]);
+  }
   rows.push(['Bit cone length', `${coneLen.toFixed(2)} mm`]);
   rows.push(['Grid', `${state.grid.W} × ${state.grid.H} cells`]);
   $('stats').innerHTML = '<table>' + rows.map(([a, b]) => `<tr><td>${a}</td><td>${escapeHtml(String(b))}</td></tr>`).join('') + '</table>';
@@ -333,8 +351,15 @@ const groups = {
   stone: ['shape', 'width', 'height', 'thickness', 'rise', 'corner', 'res'],
   design: ['symbol', 'symbolSize', 'symbolY', 'symbolX', 'border', 'borderInset', 'borderWidth', 'imgW', 'imgThr', 'imgX', 'imgY', 'imgInv'],
   toolpath: ['angle', 'diameter', 'maxDepth', 'passDepth', 'strategy', 'stepover'],
-  machine: ['feed', 'plunge', 'rpm', 'safeZ', 'rapid', 'coolant'],
+  machine: ['feed', 'plunge', 'rpm', 'safeZ', 'rapid', 'coolant', 'optimize', 'optRegion', 'optLink', 'optLinkDist', 'optRetract'],
 };
+function syncOptControls() {
+  const on = $('optimize').checked;
+  for (const id of ['optRegion', 'optLink', 'optLinkDist', 'optRetract']) $(id).disabled = !on;
+  $('optLinkDist').disabled = !on || !$('optLink').checked;
+}
+for (const id of ['optimize', 'optLink']) $(id).addEventListener('input', syncOptControls);
+syncOptControls();
 for (const [kind, ids] of Object.entries(groups)) {
   for (const id of ids) $(id).addEventListener('input', () => schedule(kind));
 }
@@ -432,6 +457,7 @@ async function restore(data) {
   $('imageFile').value = '';
   renderLines();
   updateSpeedLabel();
+  syncOptControls();
   applyLook();
   pending = -1; clearTimeout(timer);
   await run(LEVEL.stone);

@@ -58,6 +58,28 @@ serif font otherwise.
    (G0/G1/G2/G3, G20/G21, G90/G91) to simulate a file from VCarve, Aspire,
    Fusion and so on with the selected bit.
 
+## Toolpath optimization
+
+On by default (*Toolpath optimization* panel); untick it to compare. The
+stats panel shows the unoptimized run time, the time saved, and how many
+cuts start with a lift versus a direct link.
+
+- **Finish each letter before moving on**: all depth passes of one letter
+  (connected area of the design) are cut before travelling to the next,
+  instead of crossing the whole stone once per pass.
+- **Nearest-neighbour ordering**: each next cut is the closest one to where
+  the bit is, entered from whichever end is nearer.
+- **Link nearby cuts without lifting**: if the next cut starts within *Max
+  link distance*, the bit feeds straight to it. A link is only made when
+  every point along it stays at or above the finished V-carve surface, so the
+  cone stays inside the letter and the carved result is unchanged.
+- **Retract height**: between cuts the bit lifts only to this height above
+  the face; the full safe Z is used at the start and end of the program.
+
+On the default headstone this cuts the estimated run time from about 61 to
+46 minutes. A test simulating optimized and unoptimized programs for all
+three strategies produced identical carved surfaces.
+
 ## Saving and loading settings
 
 - **Save settings** downloads a `.headstone.json` file with every option:
@@ -86,5 +108,6 @@ serif font otherwise.
 | `js/simulator.js` | Height-field material removal with the V-bit |
 | `js/renderer.js` | Three.js scene, stone shader, bit and spindle |
 | `js/gcode.js` | G-code export and import |
+| `js/optimize.js` | Toolpath optimization (ordering, linking, retracts) |
 | `js/settings.js` | Save / load settings (JSON file and browser storage) |
 | `js/main.js` | UI wiring |
