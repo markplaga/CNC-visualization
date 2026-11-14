@@ -4,6 +4,7 @@ import { generateToolpaths, buildProgram, idealSurface, toolGeometry } from './v
 import { CarveSim } from './simulator.js';
 import { Viewer, STONES, FILLS } from './renderer.js';
 import { exportGcode, parseGcode, formatTime } from './gcode.js';
+import { collectSettings, applySettings, loadImage, saveLocal, readLocal, clearLocal } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -16,7 +17,7 @@ const state = {
     { text: 'MARCH 3, 1931 – JUNE 18, 2019', font: 'Cinzel', size: 13, y: 245, bold: false },
     { text: 'Forever in our hearts', font: 'Great Vibes', size: 24, y: 170, bold: false },
   ],
-  image: null,           // { img, name }
+  image: null,           // { img, name, src (data URL) }
   grid: null,
   design: null,          // { outlinePts, outline, carve }
   gen: null,             // toolpath generation result
@@ -134,6 +135,7 @@ const LEVEL = { look: 0, machine: 1, toolpath: 2, design: 3, stone: 4 };
 let pending = -1, timer = 0, runId = 0;
 
 function schedule(kind) {
+  autosave();
   pending = Math.max(pending, LEVEL[kind]);
   clearTimeout(timer);
   timer = setTimeout(() => { const k = pending; pending = -1; run(k); }, 300);
@@ -196,6 +198,7 @@ function loadProgram(P) {
 }
 
 function applyLook() {
+  autosave();
   viewer.setStone($('stone').value);
   viewer.setFill($('fill').value, { color: $('fillColor').value, metal: $('fillMetal').checked });
   if (viewer.faceMat) viewer.faceMat.uniforms.uFillDepth.value = num('fillDepth');
@@ -246,7 +249,7 @@ function updateSpeedLabel() {
   $('speedLbl').textContent = (s < 10 ? s.toFixed(1) : Math.round(s)) + '×';
 }
 updateSpeedLabel();
-$('speed').addEventListener('input', updateSpeedLabel);
+$('speed').addEventListener('input', () => { updateSpeedLabel(); autosave(); });
 
 function setPlaying(on) {
   state.playing = on;
@@ -359,11 +362,11 @@ for (const id of ['stone', 'fill', 'fillDepth', 'showLayout', 'showPath', 'showT
 $('imageFile').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  img.onload = () => { state.image = { img, name: file.name }; schedule('design'); };
-  img.onerror = () => showWarnings(['Could not read that image.']);
-  img.src = url;
+  const reader = new FileReader();
+  reader.onload = () => loadImage(reader.result, file.name)
+    .then((im) => { state.image = im; schedule('design'); })
+    .catch(() => showWarnings(['Could not read that image.']));
+  reader.readAsDataURL(file);
 });
 $('imgClear').addEventListener('click', () => { state.image = null; $('imageFile').value = ''; schedule('design'); });
 
@@ -410,7 +413,60 @@ $('shot').addEventListener('click', () => {
   download('headstone.png', viewer.renderer.domElement.toDataURL('image/png'));
 });
 
+// ---------------------------------------------------------------------------
+// settings: save / load / remember
+let autosaveTimer = 0, restoring = false;
+function autosave() {
+  if (restoring) return;
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => saveLocal(state), 500);
+}
+
+async function restore(data) {
+  restoring = true;
+  try {
+    await applySettings(data, state);
+  } finally {
+    restoring = false;
+  }
+  $('imageFile').value = '';
+  renderLines();
+  updateSpeedLabel();
+  applyLook();
+  pending = -1; clearTimeout(timer);
+  await run(LEVEL.stone);
+}
+
+$('saveSettings').addEventListener('click', () => {
+  const data = collectSettings(state);
+  const first = (state.lines.find(l => l.text.trim()) || {}).text || 'headstone';
+  const slug = first.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'headstone';
+  download(`${slug}.headstone.json`, JSON.stringify(data, null, 2), 'application/json');
+});
+$('loadSettings').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    await restore(JSON.parse(await file.text()));
+    saveLocal(state);
+  } catch (err) {
+    showWarnings([`Settings: ${err instanceof SyntaxError ? 'file is not valid JSON.' : err.message}`]);
+  }
+});
+$('resetSettings').addEventListener('click', () => {
+  if (!confirm('Reset all settings to the defaults? Your current design will be cleared.')) return;
+  clearLocal();
+  location.reload();
+});
+
 // expose for debugging / automation
 window.cncSim = { state, viewer, run };
 
-run(LEVEL.stone);
+// start: restore the last session in this browser, if any
+const saved = readLocal();
+if (saved) {
+  restore(saved).catch((err) => { console.warn('Could not restore saved settings', err); run(LEVEL.stone); });
+} else {
+  run(LEVEL.stone);
+}

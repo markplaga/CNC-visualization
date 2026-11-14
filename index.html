@@ -18,6 +18,12 @@
     <header>
       <h1>V-Bit Headstone Simulator</h1>
       <p class="sub">Design the lettering, generate a V-carve toolpath and watch the bit cut the stone.</p>
+      <div class="settings-bar">
+        <button id="saveSettings" title="Download all settings, lettering and artwork as a .json file">Save settings</button>
+        <label class="button" title="Open a saved .json settings file">Load settings…<input id="loadSettings" type="file" accept=".json,application/json" hidden></label>
+        <button id="resetSettings" title="Restore the default design">Reset</button>
+      </div>
+      <p class="hint">Your settings are also remembered in this browser.</p>
     </header>
 
     <details open>

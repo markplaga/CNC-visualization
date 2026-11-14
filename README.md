@@ -58,6 +58,16 @@ serif font otherwise.
    (G0/G1/G2/G3, G20/G21, G90/G91) to simulate a file from VCarve, Aspire,
    Fusion and so on with the selected bit.
 
+## Saving and loading settings
+
+- **Save settings** downloads a `.headstone.json` file with every option:
+  stone, lettering lines, emblem, border, bit, feeds, colours, view toggles
+  and any uploaded artwork (stored inside the file).
+- **Load settings…** opens a saved file and rebuilds the design and toolpath.
+- The current settings are also kept automatically in this browser, so a
+  reload picks up where you left off. **Reset** clears that copy and returns
+  to the default design.
+
 ## Notes and limits
 
 - Units are millimetres throughout.
@@ -76,4 +86,5 @@ serif font otherwise.
 | `js/simulator.js` | Height-field material removal with the V-bit |
 | `js/renderer.js` | Three.js scene, stone shader, bit and spindle |
 | `js/gcode.js` | G-code export and import |
+| `js/settings.js` | Save / load settings (JSON file and browser storage) |
 | `js/main.js` | UI wiring |
