@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>V-Bit Headstone Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=EB+Garamond:wght@400;600&family=Great+Vibes&family=Pinyon+Script&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.js" } }
+  </script>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <header>
+      <h1>V-Bit Headstone Simulator</h1>
+      <p class="sub">Design the lettering, generate a V-carve toolpath and watch the bit cut the stone.</p>
+      <div class="settings-bar">
+        <button id="saveSettings" title="Download all settings, lettering and artwork as a .json file">Save settings</button>
+        <label class="button" title="Open a saved .json settings file">Load settings…<input id="loadSettings" type="file" accept=".json,application/json" hidden></label>
+        <button id="resetSettings" title="Restore the default design">Reset</button>
+      </div>
+      <p class="hint">Your settings are also remembered in this browser.</p>
+    </header>
+
+    <details open>
+      <summary>Stone</summary>
+      <div class="grid2">
+        <label>Shape <select id="shape"></select></label>
+        <label>Material <select id="stone"></select></label>
+        <label>Width (mm) <input id="width" type="number" min="100" max="2500" step="5" value="610"></label>
+        <label>Height (mm) <input id="height" type="number" min="100" max="2500" step="5" value="510"></label>
+        <label>Thickness (mm) <input id="thickness" type="number" min="20" max="400" step="5" value="100"></label>
+        <label>Top rise (mm) <input id="rise" type="number" min="0" max="1000" step="5" value="70"></label>
+        <label>Corner radius (mm) <input id="corner" type="number" min="0" max="500" step="5" value="40"></label>
+        <label>Sim resolution <select id="res">
+          <option value="1">1.0 mm (fast)</option>
+          <option value="0.75">0.75 mm</option>
+          <option value="0.5" selected>0.5 mm</option>
+          <option value="0.35">0.35 mm (fine)</option>
+          <option value="0.25">0.25 mm (slow)</option>
+        </select></label>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Lettering</summary>
+      <div id="lines"></div>
+      <button id="addLine" class="small">+ Add line</button>
+    </details>
+
+    <details>
+      <summary>Emblem &amp; border</summary>
+      <div class="grid2">
+        <label>Emblem <select id="symbol"></select></label>
+        <label>Emblem height (mm) <input id="symbolSize" type="number" min="10" max="600" step="5" value="70"></label>
+        <label>Emblem centre Y (mm) <input id="symbolY" type="number" step="5" value="420"></label>
+        <label>Emblem offset X (mm) <input id="symbolX" type="number" step="5" value="0"></label>
+        <label class="check"><input id="border" type="checkbox" checked> Carved border</label>
+        <span></span>
+        <label>Border inset (mm) <input id="borderInset" type="number" min="2" max="200" step="1" value="20"></label>
+        <label>Border width (mm) <input id="borderWidth" type="number" min="1" max="40" step="0.5" value="4"></label>
+      </div>
+    </details>
+
+    <details>
+      <summary>Artwork image</summary>
+      <p class="hint">Dark pixels of a PNG/JPG/SVG are carved. Use high-contrast line art.</p>
+      <input id="imageFile" type="file" accept="image/*">
+      <div class="grid2">
+        <label>Width (mm) <input id="imgW" type="number" min="5" max="2000" step="5" value="120"></label>
+        <label>Threshold <input id="imgThr" type="number" min="1" max="255" step="1" value="128"></label>
+        <label>Centre X offset <input id="imgX" type="number" step="5" value="0"></label>
+        <label>Centre Y (mm) <input id="imgY" type="number" step="5" value="120"></label>
+        <label class="check"><input id="imgInv" type="checkbox"> Invert</label>
+        <button id="imgClear" class="small">Remove image</button>
+      </div>
+    </details>
+
+    <details open>
+      <summary>V-bit &amp; cutting</summary>
+      <div class="grid2">
+        <label>Included angle <select id="angle">
+          <option>30</option><option>45</option><option selected>60</option><option>90</option><option>120</option><option>150</option>
+        </select></label>
+        <label>Bit diameter (mm) <input id="diameter" type="number" min="1" max="50" step="0.1" value="12.7"></label>
+        <label>Max depth (mm) <input id="maxDepth" type="number" min="0.2" max="40" step="0.1" value="5"></label>
+        <label>Depth per pass (mm) <input id="passDepth" type="number" min="0" max="20" step="0.1" value="1.5"></label>
+        <label>Strategy <select id="strategy">
+          <option value="vcarve" selected>V-carve (medial axis)</option>
+          <option value="offset">Offset contours + axis</option>
+          <option value="raster">Raster (zig-zag)</option>
+        </select></label>
+        <label>Stepover (mm) <input id="stepover" type="number" min="0.1" max="10" step="0.05" value="0.6"></label>
+        <label>Feed (mm/min) <input id="feed" type="number" min="10" max="20000" step="10" value="900"></label>
+        <label>Plunge (mm/min) <input id="plunge" type="number" min="10" max="10000" step="10" value="250"></label>
+        <label>Spindle (RPM) <input id="rpm" type="number" min="1000" max="40000" step="500" value="12000"></label>
+        <label>Safe Z (mm) <input id="safeZ" type="number" min="1" max="100" step="1" value="5"></label>
+        <label>Rapid (mm/min) <input id="rapid" type="number" min="100" max="40000" step="100" value="5000"></label>
+        <label class="check"><input id="coolant" type="checkbox" checked> Water coolant (M8)</label>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Toolpath optimization</summary>
+      <div class="grid2">
+        <label class="check" style="grid-column:1/3"><input id="optimize" type="checkbox" checked> Optimize toolpath</label>
+        <label class="check" style="grid-column:1/3"><input id="optRegion" type="checkbox" checked> Finish each letter before moving on</label>
+        <label class="check" style="grid-column:1/3"><input id="optLink" type="checkbox" checked> Link nearby cuts without lifting</label>
+        <label>Max link distance (mm) <input id="optLinkDist" type="number" min="0" max="100" step="0.5" value="6"></label>
+        <label>Retract height (mm) <input id="optRetract" type="number" min="0.2" max="100" step="0.1" value="1"></label>
+      </div>
+      <p class="hint">Links are only made where the bit stays inside the finished V-carve, so they never gouge the stone. Retract height is used between cuts; safe Z is used at the start and end.</p>
+    </details>
+
+    <details open>
+      <summary>Carved area colour</summary>
+      <div class="grid2">
+        <label>Fill <select id="fill"></select></label>
+        <label>Fill above depth (mm) <input id="fillDepth" type="number" min="0" max="10" step="0.05" value="0.25"></label>
+        <label>Custom colour <input id="fillColor" type="color" value="#1f4e9c"></label>
+        <label class="check"><input id="fillMetal" type="checkbox"> Metallic finish</label>
+      </div>
+      <div class="swatches" id="swatches" aria-label="Common lettering paints"></div>
+      <p class="hint">Picking a colour or swatch switches the fill to <em>Custom colour</em>.</p>
+    </details>
+
+    <div id="stats"></div>
+    <div id="warnings"></div>
+
+    <div class="files">
+      <button id="exportG">Export G-code</button>
+      <label class="button">Load G-code…<input id="loadG" type="file" accept=".nc,.gcode,.ngc,.tap,.txt,.cnc" hidden></label>
+      <button id="useGen" hidden>Use generated toolpath</button>
+      <button id="shot">Save screenshot</button>
+    </div>
+  </aside>
+
+  <main id="view">
+    <div id="canvas"></div>
+    <div class="toggles">
+      <label><input id="showPath" type="checkbox"> Toolpath</label>
+      <label><input id="showTool" type="checkbox" checked> Bit</label>
+      <label><input id="showLayout" type="checkbox" checked> Layout</label>
+      <button id="preview" title="Show the ideal finished result">Preview result</button>
+      <button id="frame" title="Reset camera">⌖</button>
+    </div>
+    <div id="hud">
+      <div id="busy" hidden>Computing toolpath…</div>
+    </div>
+    <div id="controls">
+      <button id="play" title="Play / pause (space)">▶ Carve</button>
+      <button id="reset" title="Reset stone">⟲</button>
+      <button id="finish" title="Finish instantly">⏭</button>
+      <label class="speed">Speed <input id="speed" type="range" min="0" max="100" value="55"><span id="speedLbl"></span></label>
+      <div class="progress"><div id="bar"></div></div>
+      <span id="readout">—</span>
+    </div>
+  </main>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
