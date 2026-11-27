@@ -489,6 +489,21 @@ $('resetSettings').addEventListener('click', () => {
 // expose for debugging / automation
 window.cncSim = { state, viewer, run };
 
+// PWA-UPDATE-SYSTEM v2 bridge: the update script is a separate
+// classic <script> and cannot see inside this module, so expose only
+// what an update needs. save: flush the debounced autosave to
+// localStorage right now, so the latest settings are stored before
+// the reload. isDirty: a carve in progress (or partly carved), or a
+// G-code file loaded from disk, lives only in memory — settings are
+// autosaved, but simulation progress and an imported program are
+// not, so a reload would lose them and an update must ask first.
+window.__cncUpdate = {
+  save: () => { try { saveLocal(state); } catch (e) {} },
+  isDirty: () => state.playing
+    || (state.sim && state.sim.time > 0 && !state.sim.done)
+    || state.imported !== null
+};
+
 // start: restore the last session in this browser, if any
 const saved = readLocal();
 if (saved) {
